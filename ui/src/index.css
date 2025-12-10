@@ -90,16 +90,16 @@
     @apply px-3 py-1 text-sm bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/50 rounded text-amber-300 transition duration-150;
   }
 
-  /* Range slider styling */
-  input[type='range'] {
+  /* Range slider styling - allow .custom-slider to override */
+  input[type='range']:not(.custom-slider) {
     @apply w-full h-2 bg-slate-700 rounded appearance-none cursor-pointer accent-amber-500;
   }
 
-  input[type='range']::-webkit-slider-thumb {
+  input[type='range']:not(.custom-slider)::-webkit-slider-thumb {
     @apply appearance-none w-4 h-4 bg-amber-500 rounded-full cursor-pointer hover:bg-amber-400 transition;
   }
 
-  input[type='range']::-moz-range-thumb {
+  input[type='range']:not(.custom-slider)::-moz-range-thumb {
     @apply w-4 h-4 bg-amber-500 rounded-full cursor-pointer hover:bg-amber-400 transition border-0;
   }
 

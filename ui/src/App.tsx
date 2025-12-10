@@ -1,9 +1,143 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import './App.css'
 import stormtrooper from './assets/stormtrooper.png'
 
+// Type definitions
+interface Settings {
+  hairColor: string;
+  hairStyle: string;
+  expression: string;
+  outfit: string;
+  shirtColor: string;
+  tieStyle: string;
+  lighting: string;
+  background: string;
+  cheeks: number;
+  chin: number;
+  forehead: number;
+  nose: number;
+  ears: number;
+  subjectType?: string;
+}
+
+interface SectionEnabled {
+  hair: boolean;
+  face: boolean;
+  clothing: boolean;
+  style: boolean;
+}
 
 function App() {
+  // State management
+  const [settings, setSettings] = useState<Settings>({
+    hairColor: 'blond',
+    hairStyle: 'voluminous swept to side',
+    expression: 'stern',
+    outfit: 'dark formal suit',
+    shirtColor: 'white',
+    tieStyle: 'solid blue tie',
+    lighting: 'soft studio lighting',
+    background: 'dark gradient',
+    cheeks: 70,
+    chin: 75,
+    forehead: 60,
+    nose: 70,
+    ears: 55,
+    subjectType: 'older man'
+  });
+
+  const [sectionEnabled, setSectionEnabled] = useState<SectionEnabled>({
+    hair: false,
+    face: false,
+    clothing: false,
+    style: false
+  });
+
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    hair: false,
+    face: false,
+    clothing: false,
+    style: false
+  });
+
+  const [userPhoto, setUserPhoto] = useState<string | null>(null);
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showJson, setShowJson] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
+  const [extraMode, setExtraMode] = useState(false);
+  const [jsonCopied, setJsonCopied] = useState(false);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('caricature-history');
+    if (saved) {
+      setHistory(JSON.parse(saved));
+    }
+    const savedPhoto = localStorage.getItem('caricature-user-photo');
+    if (savedPhoto) {
+      setUserPhoto(savedPhoto);
+    }
+  }, []);
+
+  // Clear JSON copied notification after 2 seconds
+  useEffect(() => {
+    if (jsonCopied) {
+      const timer = setTimeout(() => setJsonCopied(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [jsonCopied]);
+
+  // Handle copy JSON
+  const handleCopyJson = () => {
+    navigator.clipboard.writeText(JSON.stringify(buildJsonPrompt(), null, 2));
+    setJsonCopied(true);
+  };
+
+  // Toggle accordion section
+  const toggleSection = (sectionName: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [sectionName]: !prev[sectionName]
+    }));
+  };
+
+  // Build JSON prompt
+  const buildJsonPrompt = () => {
+    return {
+      style: {
+        type: "hyperrealistic caricature",
+        lighting: sectionEnabled.style ? settings.lighting : "(default)",
+        mood: "serious, dramatic",
+        details: `${extraMode ? 'extremely' : ''} exaggerated facial proportions, smooth skin texture, painterly realism`
+      },
+      subject: {
+        type: settings.subjectType,
+        hasReferencePhoto: !!userPhoto,
+        features: {
+          hair: sectionEnabled.hair ? `${settings.hairColor}, ${settings.hairStyle}` : "(default)",
+          face: sectionEnabled.face ? {
+            cheeks_exaggeration: settings.cheeks,
+            chin_exaggeration: settings.chin,
+            forehead_exaggeration: settings.forehead,
+            nose_exaggeration: settings.nose,
+            ears_exaggeration: settings.ears
+          } : "(default)",
+          expression: sectionEnabled.face ? settings.expression : "(default)"
+        },
+        clothing: sectionEnabled.clothing ? {
+          outfit: settings.outfit,
+          shirt: settings.shirtColor,
+          tie: settings.tieStyle
+        } : "(default)"
+      },
+      background: {
+        type: sectionEnabled.style ? settings.background : "(default)",
+        atmosphere: "studio portrait, minimalistic"
+      },
+      sectionsEnabled: sectionEnabled
+    };
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 flex flex-col overflow-hidden">
@@ -57,23 +191,28 @@ function App() {
               <label className="block text-sm font-medium text-amber-200/80 mb-2">Subject Type</label>
               <input type="text" className="custom-input w-full" placeholder="e.g., older man, young woman, businessman..." value="older man" />
             </div>
-            <div className="accordion-section mb-3 section-disabled">
+            <div className={`accordion-section mb-3 ${!sectionEnabled.hair ? 'section-disabled' : ''}`}>
               <div className="accordion-header-wrapper">
-                <button className="accordion-header flex-1">
+                <button className="accordion-header flex-1" onClick={() => toggleSection('hair')}>
                   <span className="flex items-center gap-2">
                     <span>💇</span>
                     <span>Hair</span>
                   </span>
-                  <span className="transform transition-transform rotate-180">▼</span>
+                  <span className={`transform transition-transform ${expandedSections.hair ? '' : 'rotate-180'}`}>▼</span>
                 </button>
                 <div className="accordion-checkbox-wrapper">
                   <label className="section-checkbox flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" className="custom-checkbox" />
-                    <span className="text-xs text-amber-400/60">Excluded from prompt</span>
+                    <input
+                      type="checkbox"
+                      className="custom-checkbox"
+                      checked={sectionEnabled.hair}
+                      onChange={(e) => setSectionEnabled(prev => ({ ...prev, hair: e.target.checked }))}
+                    />
+                    <span className="text-xs text-amber-400/60">{sectionEnabled.hair ? 'Included in prompt' : 'Excluded from prompt'}</span>
                   </label>
                 </div>
               </div>
-              <div className="accordion-content">
+              <div className={`accordion-content ${!expandedSections.hair ? 'collapsed' : ''}`}>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-amber-200/80 mb-2">Color</label>
                   <select className="custom-select w-full">
@@ -102,23 +241,28 @@ function App() {
                 </div>
               </div>
             </div>
-            <div className="accordion-section mb-3 section-disabled">
+            <div className={`accordion-section mb-3 ${!sectionEnabled.face ? 'section-disabled' : ''}`}>
               <div className="accordion-header-wrapper">
-                <button className="accordion-header flex-1">
+                <button className="accordion-header flex-1" onClick={() => toggleSection('face')}>
                   <span className="flex items-center gap-2">
                     <span>👤</span>
                     <span>Face Features</span>
                   </span>
-                  <span className="transform transition-transform rotate-180">▼</span>
+                  <span className={`transform transition-transform ${expandedSections.face ? '' : 'rotate-180'}`}>▼</span>
                 </button>
                 <div className="accordion-checkbox-wrapper">
                   <label className="section-checkbox flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" className="custom-checkbox" />
-                    <span className="text-xs text-amber-400/60">Excluded from prompt</span>
+                    <input
+                      type="checkbox"
+                      className="custom-checkbox"
+                      checked={sectionEnabled.face}
+                      onChange={(e) => setSectionEnabled(prev => ({ ...prev, face: e.target.checked }))}
+                    />
+                    <span className="text-xs text-amber-400/60">{sectionEnabled.face ? 'Included in prompt' : 'Excluded from prompt'}</span>
                   </label>
                 </div>
               </div>
-              <div className="accordion-content">
+              <div className={`accordion-content ${!expandedSections.face ? 'collapsed' : ''}`}>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-amber-200/80 mb-2">Expression</label>
                   <select className="custom-select w-full">
@@ -138,8 +282,15 @@ function App() {
                     <span className="tooltip-trigger text-amber-500/60 cursor-help text-xs">?</span>
                   </div>
                   <div className="relative">
-                    <input type="range" min="0" max="100" className="custom-slider w-full" value="70" />
-                    <span className="text-xs text-amber-400/60 absolute right-0 -top-1">70%</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      className="custom-slider w-full"
+                      value={settings.cheeks}
+                      onChange={(e) => setSettings(prev => ({ ...prev, cheeks: parseInt(e.target.value) }))}
+                    />
+                    <span className="text-xs text-amber-400/60 absolute right-0 -top-1">{settings.cheeks}%</span>
                   </div>
                 </div>
                 <div className="slider-container mb-4">
@@ -148,8 +299,15 @@ function App() {
                     <span className="tooltip-trigger text-amber-500/60 cursor-help text-xs">?</span>
                   </div>
                   <div className="relative">
-                    <input type="range" min="0" max="100" className="custom-slider w-full" value="75" />
-                    <span className="text-xs text-amber-400/60 absolute right-0 -top-1">75%</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      className="custom-slider w-full"
+                      value={settings.chin}
+                      onChange={(e) => setSettings(prev => ({ ...prev, chin: parseInt(e.target.value) }))}
+                    />
+                    <span className="text-xs text-amber-400/60 absolute right-0 -top-1">{settings.chin}%</span>
                   </div>
                 </div>
                 <div className="slider-container mb-4">
@@ -158,8 +316,15 @@ function App() {
                     <span className="tooltip-trigger text-amber-500/60 cursor-help text-xs">?</span>
                   </div>
                   <div className="relative">
-                    <input type="range" min="0" max="100" className="custom-slider w-full" value="60" />
-                    <span className="text-xs text-amber-400/60 absolute right-0 -top-1">60%</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      className="custom-slider w-full"
+                      value={settings.forehead}
+                      onChange={(e) => setSettings(prev => ({ ...prev, forehead: parseInt(e.target.value) }))}
+                    />
+                    <span className="text-xs text-amber-400/60 absolute right-0 -top-1">{settings.forehead}%</span>
                   </div>
                 </div>
                 <div className="slider-container mb-4">
@@ -168,8 +333,15 @@ function App() {
                     <span className="tooltip-trigger text-amber-500/60 cursor-help text-xs">?</span>
                   </div>
                   <div className="relative">
-                    <input type="range" min="0" max="100" className="custom-slider w-full" value="70" />
-                    <span className="text-xs text-amber-400/60 absolute right-0 -top-1">70%</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      className="custom-slider w-full"
+                      value={settings.nose}
+                      onChange={(e) => setSettings(prev => ({ ...prev, nose: parseInt(e.target.value) }))}
+                    />
+                    <span className="text-xs text-amber-400/60 absolute right-0 -top-1">{settings.nose}%</span>
                   </div>
                 </div>
                 <div className="slider-container mb-4">
@@ -178,49 +350,139 @@ function App() {
                     <span className="tooltip-trigger text-amber-500/60 cursor-help text-xs">?</span>
                   </div>
                   <div className="relative">
-                    <input type="range" min="0" max="100" className="custom-slider w-full" value="55" />
-                    <span className="text-xs text-amber-400/60 absolute right-0 -top-1">55%</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      className="custom-slider w-full"
+                      value={settings.ears}
+                      onChange={(e) => setSettings(prev => ({ ...prev, ears: parseInt(e.target.value) }))}
+                    />
+                    <span className="text-xs text-amber-400/60 absolute right-0 -top-1">{settings.ears}%</span>
                   </div>
                 </div>
               </div>
             </div>
-            <div className="accordion-section mb-3 section-disabled">
+            <div className={`accordion-section mb-3 ${!sectionEnabled.clothing ? 'section-disabled' : ''}`}>
               <div className="accordion-header-wrapper">
-                <button className="accordion-header flex-1">
+                <button className="accordion-header flex-1" onClick={() => toggleSection('clothing')}>
                   <span className="flex items-center gap-2">
                     <span>👔</span>
                     <span>Clothing</span>
                   </span>
-                  <span className="transform transition-transform ">▼</span>
+                  <span className={`transform transition-transform ${expandedSections.clothing ? '' : 'rotate-180'}`}>▼</span>
                 </button>
                 <div className="accordion-checkbox-wrapper">
                   <label className="section-checkbox flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" className="custom-checkbox" />
-                    <span className="text-xs text-amber-400/60">Excluded from prompt</span>
+                    <input
+                      type="checkbox"
+                      className="custom-checkbox"
+                      checked={sectionEnabled.clothing}
+                      onChange={(e) => setSectionEnabled(prev => ({ ...prev, clothing: e.target.checked }))}
+                    />
+                    <span className="text-xs text-amber-400/60">{sectionEnabled.clothing ? 'Included in prompt' : 'Excluded from prompt'}</span>
                   </label>
                 </div>
               </div>
+              <div className={`accordion-content ${!expandedSections.clothing ? 'collapsed' : ''}`}>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-amber-200/80 mb-2">Outfit</label>
+                  <select className="custom-select w-full">
+                    <option value="dark formal suit">dark formal suit</option>
+                    <option value="casual sweater">casual sweater</option>
+                    <option value="vintage tuxedo">vintage tuxedo</option>
+                    <option value="leather jacket">leather jacket</option>
+                    <option value="lab coat">lab coat</option>
+                    <option value="military uniform">military uniform</option>
+                    <option value="superhero cape">superhero cape</option>
+                    <option value="banana costume">banana costume</option>
+                  </select>
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-amber-200/80 mb-2">Shirt Color</label>
+                  <select className="custom-select w-full">
+                    <option value="white">white</option>
+                    <option value="light blue">light blue</option>
+                    <option value="pink">pink</option>
+                    <option value="cream">cream</option>
+                    <option value="black">black</option>
+                    <option value="striped">striped</option>
+                  </select>
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-amber-200/80 mb-2">Tie/Accessory</label>
+                  <select className="custom-select w-full">
+                    <option value="solid blue tie">solid blue tie</option>
+                    <option value="red power tie">red power tie</option>
+                    <option value="bow tie">bow tie</option>
+                    <option value="no tie">no tie</option>
+                    <option value="gold tie">gold tie</option>
+                    <option value="polka dot tie">polka dot tie</option>
+                  </select>
+                </div>
+              </div>
             </div>
-            <div className="accordion-section mb-3 section-disabled">
+            <div className={`accordion-section mb-3 ${!sectionEnabled.style ? 'section-disabled' : ''}`}>
               <div className="accordion-header-wrapper">
-                <button className="accordion-header flex-1">
+                <button className="accordion-header flex-1" onClick={() => toggleSection('style')}>
                   <span className="flex items-center gap-2">
                     <span>🎬</span>
                     <span>Mood &amp; Style</span>
                   </span>
-                  <span className="transform transition-transform ">▼</span>
+                  <span className={`transform transition-transform ${expandedSections.style ? '' : 'rotate-180'}`}>▼</span>
                 </button>
                 <div className="accordion-checkbox-wrapper">
                   <label className="section-checkbox flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" className="custom-checkbox" />
-                    <span className="text-xs text-amber-400/60">Excluded from prompt</span>
+                    <input
+                      type="checkbox"
+                      className="custom-checkbox"
+                      checked={sectionEnabled.style}
+                      onChange={(e) => setSectionEnabled(prev => ({ ...prev, style: e.target.checked }))}
+                    />
+                    <span className="text-xs text-amber-400/60">{sectionEnabled.style ? 'Included in prompt' : 'Excluded from prompt'}</span>
                   </label>
+                </div>
+              </div>
+              <div className={`accordion-content ${!expandedSections.style ? 'collapsed' : ''}`}>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-amber-200/80 mb-2">Lighting</label>
+                  <select className="custom-select w-full">
+                    <option value="soft studio lighting">soft studio lighting</option>
+                    <option value="dramatic rim lighting">dramatic rim lighting</option>
+                    <option value="warm golden hour">warm golden hour</option>
+                    <option value="cool blue tones">cool blue tones</option>
+                    <option value="high contrast noir">high contrast noir</option>
+                  </select>
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-amber-200/80 mb-2">Background</label>
+                  <select className="custom-select w-full">
+                    <option value="dark gradient">dark gradient</option>
+                    <option value="smoky atmosphere">smoky atmosphere</option>
+                    <option value="rich burgundy">rich burgundy</option>
+                    <option value="deep navy blue">deep navy blue</option>
+                    <option value="charcoal gray">charcoal gray</option>
+                  </select>
                 </div>
               </div>
             </div>
             <button className="extra-btn w-full mt-4 ">🤫 Make it EXTRA</button>
             <button className="generate-btn w-full mt-4">✨ Transform Your Photo</button>
-            <button className="json-toggle mt-4 text-sm">▶ Show Prompt JSON</button>
+            <button onClick={() => setShowJson(!showJson)} className="json-toggle mt-4 text-sm">
+              {showJson ? '▼ Hide Prompt JSON' : '▶ Show Prompt JSON'}
+            </button>
+
+            {showJson && (
+              <div className="json-display mt-3">
+                <pre>{JSON.stringify(buildJsonPrompt(), null, 2)}</pre>
+                <button
+                  onClick={handleCopyJson}
+                  className="copy-btn mt-2"
+                >
+                  {jsonCopied ? '✓ Copied!' : '📋 Copy JSON'}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="preview-panel">
@@ -242,8 +504,6 @@ function App() {
               </div>
             </div>
           </div>
-
-
         </div>
       </main>
 
