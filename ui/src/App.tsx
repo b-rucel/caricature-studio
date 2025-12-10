@@ -27,6 +27,104 @@ interface SectionEnabled {
   style: boolean;
 }
 
+interface Preset {
+  name: string;
+  icon: string;
+  settings: Settings;
+}
+
+const HAIR_COLORS = ['blond', 'dark brown', 'black', 'gray', 'white', 'red', 'auburn', 'silver'];
+const HAIR_STYLES = ['voluminous swept to side', 'slicked back', 'curly', 'bald', 'spiky', 'wavy', 'short cropped', 'wild and messy'];
+const EXPRESSIONS = ['stern', 'smiling warmly', 'surprised', 'pouty', 'smug', 'contemplative', 'mischievous', 'serious'];
+const OUTFITS = ['dark formal suit', 'casual sweater', 'vintage tuxedo', 'leather jacket', 'lab coat', 'military uniform', 'superhero cape', 'banana costume'];
+const SHIRT_COLORS = ['white', 'light blue', 'pink', 'cream', 'black', 'striped'];
+const TIE_STYLES = ['solid blue tie', 'red power tie', 'bow tie', 'no tie', 'gold tie', 'polka dot tie'];
+const LIGHTING = ['soft studio lighting', 'dramatic rim lighting', 'warm golden hour', 'cool blue tones', 'high contrast noir'];
+const BACKGROUNDS = ['dark gradient', 'smoky atmosphere', 'rich burgundy', 'deep navy blue', 'charcoal gray'];
+
+const PRESETS: Preset[] = [
+  {
+    name: 'Distinguished Gentleman',
+    icon: '🎩',
+    settings: {
+      hairColor: 'gray',
+      hairStyle: 'slicked back',
+      expression: 'contemplative',
+      outfit: 'dark formal suit',
+      shirtColor: 'white',
+      tieStyle: 'solid blue tie',
+      lighting: 'soft studio lighting',
+      background: 'dark gradient',
+      cheeks: 70,
+      chin: 80,
+      forehead: 60,
+      nose: 75,
+      ears: 50,
+      subjectType: 'older man'
+    }
+  },
+  {
+    name: 'Stern Leader',
+    icon: '👔',
+    settings: {
+      hairColor: 'blond',
+      hairStyle: 'voluminous swept to side',
+      expression: 'stern',
+      outfit: 'dark formal suit',
+      shirtColor: 'white',
+      tieStyle: 'red power tie',
+      lighting: 'dramatic rim lighting',
+      background: 'deep navy blue',
+      cheeks: 85,
+      chin: 90,
+      forehead: 70,
+      nose: 80,
+      ears: 60,
+      subjectType: 'older man'
+    }
+  },
+  {
+    name: 'Friendly Celebrity',
+    icon: '⭐',
+    settings: {
+      hairColor: 'dark brown',
+      hairStyle: 'wavy',
+      expression: 'smiling warmly',
+      outfit: 'casual sweater',
+      shirtColor: 'cream',
+      tieStyle: 'no tie',
+      lighting: 'warm golden hour',
+      background: 'smoky atmosphere',
+      cheeks: 60,
+      chin: 55,
+      forehead: 50,
+      nose: 65,
+      ears: 45,
+      subjectType: 'young woman'
+    }
+  },
+  {
+    name: 'Mad Scientist',
+    icon: '🧪',
+    settings: {
+      hairColor: 'white',
+      hairStyle: 'wild and messy',
+      expression: 'mischievous',
+      outfit: 'lab coat',
+      shirtColor: 'black',
+      tieStyle: 'bow tie',
+      lighting: 'high contrast noir',
+      background: 'charcoal gray',
+      cheeks: 50,
+      chin: 65,
+      forehead: 90,
+      nose: 85,
+      ears: 70,
+      subjectType: 'scientist'
+    }
+  }
+];
+
 function App() {
   // State management
   const [settings, setSettings] = useState<Settings>({
@@ -102,6 +200,49 @@ function App() {
     }));
   };
 
+  // Randomize settings
+  const randomize = () => {
+    const newSettings: Settings = {
+      hairColor: HAIR_COLORS[Math.floor(Math.random() * HAIR_COLORS.length)],
+      hairStyle: HAIR_STYLES[Math.floor(Math.random() * HAIR_STYLES.length)],
+      expression: EXPRESSIONS[Math.floor(Math.random() * EXPRESSIONS.length)],
+      outfit: OUTFITS[Math.floor(Math.random() * OUTFITS.length)],
+      shirtColor: SHIRT_COLORS[Math.floor(Math.random() * SHIRT_COLORS.length)],
+      tieStyle: TIE_STYLES[Math.floor(Math.random() * TIE_STYLES.length)],
+      lighting: LIGHTING[Math.floor(Math.random() * LIGHTING.length)],
+      background: BACKGROUNDS[Math.floor(Math.random() * BACKGROUNDS.length)],
+      cheeks: Math.floor(Math.random() * 100),
+      chin: Math.floor(Math.random() * 100),
+      forehead: Math.floor(Math.random() * 100),
+      nose: Math.floor(Math.random() * 100),
+      ears: Math.floor(Math.random() * 100),
+      subjectType: settings.subjectType
+    };
+    setSettings(newSettings);
+    // Enable all sections when randomizing
+    setSectionEnabled({
+      hair: true,
+      face: true,
+      clothing: true,
+      style: true
+    });
+  };
+
+  // Make it EXTRA - maximize all facial exaggerations
+  const makeItExtra = () => {
+    setExtraMode(true);
+    setSettings(prev => ({
+      ...prev,
+      cheeks: 100,
+      chin: 100,
+      forehead: 100,
+      nose: 100,
+      ears: 100
+    }));
+    // Enable face section when making it extra
+    setSectionEnabled(prev => ({ ...prev, face: true }));
+  };
+
   // Build JSON prompt
   const buildJsonPrompt = () => {
     return {
@@ -139,6 +280,18 @@ function App() {
     };
   };
 
+  // Apply preset settings
+  const applyPreset = (preset: Preset) => {
+    setSettings(preset.settings);
+    // Enable all sections when applying preset
+    setSectionEnabled({
+      hair: true,
+      face: true,
+      clothing: true,
+      style: true
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 flex flex-col overflow-hidden">
       {/* Header */}
@@ -151,22 +304,16 @@ function App() {
         <div className="max-w-6xl mx-auto">
           <h3 className="text-amber-400/80 text-sm font-semibold mb-4 uppercase tracking-wider">Quick Presets</h3>
           <div className="flex gap-3 pb-2">
-            <button className="preset-btn flex-shrink-0">
-              <span className="text-2xl">🎩</span>
-              <span className="text-sm">Distinguished Gentleman</span>
-            </button>
-            <button className="preset-btn flex-shrink-0">
-              <span className="text-2xl">👔</span>
-              <span className="text-sm">Stern Leader</span>
-            </button>
-            <button className="preset-btn flex-shrink-0">
-              <span className="text-2xl">⭐</span>
-              <span className="text-sm">Friendly Celebrity</span>
-            </button>
-            <button className="preset-btn flex-shrink-0">
-              <span className="text-2xl">🧪</span>
-              <span className="text-sm">Mad Scientist</span>
-            </button>
+            {PRESETS.map(preset => (
+              <button
+                key={preset.name}
+                onClick={() => applyPreset(preset)}
+                className="preset-btn flex-shrink-0"
+              >
+                <span className="text-2xl">{preset.icon}</span>
+                <span className="text-sm">{preset.name}</span>
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -177,7 +324,7 @@ function App() {
           <div className="control-panel">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-amber-100">Customize Your Subject</h2>
-              <button className="randomize-btn text-sm">🎲 Randomize</button>
+              <button onClick={randomize} className="randomize-btn text-sm">🎲 Randomize</button>
             </div>
             <div className="photo-uploader mb-6">
               <label className="block text-sm font-medium text-amber-200/80 mb-2">Your Photo (Optional)</label>
@@ -189,7 +336,7 @@ function App() {
             </div>
             <div className="mb-6">
               <label className="block text-sm font-medium text-amber-200/80 mb-2">Subject Type</label>
-              <input type="text" className="custom-input w-full" placeholder="e.g., older man, young woman, businessman..." value="older man" />
+              <input type="text" className="custom-input w-full" placeholder="e.g., older man, young woman, businessman..." value="" />
             </div>
             <div className={`accordion-section mb-3 ${!sectionEnabled.hair ? 'section-disabled' : ''}`}>
               <div className="accordion-header-wrapper">
@@ -215,7 +362,11 @@ function App() {
               <div className={`accordion-content ${!expandedSections.hair ? 'collapsed' : ''}`}>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-amber-200/80 mb-2">Color</label>
-                  <select className="custom-select w-full">
+                  <select
+                    value={settings.hairColor}
+                    onChange={(e) => setSettings(prev => ({ ...prev, hairColor: e.target.value }))}
+                    className="custom-select w-full"
+                  >
                     <option value="blond">blond</option>
                     <option value="dark brown">dark brown</option>
                     <option value="black">black</option>
@@ -228,7 +379,11 @@ function App() {
                 </div>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-amber-200/80 mb-2">Style</label>
-                  <select className="custom-select w-full">
+                  <select
+                    value={settings.hairStyle}
+                    onChange={(e) => setSettings(prev => ({ ...prev, hairStyle: e.target.value }))}
+                    className="custom-select w-full"
+                  >
                     <option value="voluminous swept to side">voluminous swept to side</option>
                     <option value="slicked back">slicked back</option>
                     <option value="curly">curly</option>
@@ -265,7 +420,11 @@ function App() {
               <div className={`accordion-content ${!expandedSections.face ? 'collapsed' : ''}`}>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-amber-200/80 mb-2">Expression</label>
-                  <select className="custom-select w-full">
+                  <select
+                    value={settings.expression}
+                    onChange={(e) => setSettings(prev => ({ ...prev, expression: e.target.value }))}
+                    className="custom-select w-full"
+                  >
                     <option value="stern">stern</option>
                     <option value="smiling warmly">smiling warmly</option>
                     <option value="surprised">surprised</option>
@@ -387,7 +546,11 @@ function App() {
               <div className={`accordion-content ${!expandedSections.clothing ? 'collapsed' : ''}`}>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-amber-200/80 mb-2">Outfit</label>
-                  <select className="custom-select w-full">
+                  <select
+                    value={settings.outfit}
+                    onChange={(e) => setSettings(prev => ({ ...prev, outfit: e.target.value }))}
+                    className="custom-select w-full"
+                  >
                     <option value="dark formal suit">dark formal suit</option>
                     <option value="casual sweater">casual sweater</option>
                     <option value="vintage tuxedo">vintage tuxedo</option>
@@ -400,7 +563,11 @@ function App() {
                 </div>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-amber-200/80 mb-2">Shirt Color</label>
-                  <select className="custom-select w-full">
+                  <select
+                    value={settings.shirtColor}
+                    onChange={(e) => setSettings(prev => ({ ...prev, shirtColor: e.target.value }))}
+                    className="custom-select w-full"
+                  >
                     <option value="white">white</option>
                     <option value="light blue">light blue</option>
                     <option value="pink">pink</option>
@@ -411,7 +578,11 @@ function App() {
                 </div>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-amber-200/80 mb-2">Tie/Accessory</label>
-                  <select className="custom-select w-full">
+                  <select
+                    value={settings.tieStyle}
+                    onChange={(e) => setSettings(prev => ({ ...prev, tieStyle: e.target.value }))}
+                    className="custom-select w-full"
+                  >
                     <option value="solid blue tie">solid blue tie</option>
                     <option value="red power tie">red power tie</option>
                     <option value="bow tie">bow tie</option>
@@ -446,7 +617,11 @@ function App() {
               <div className={`accordion-content ${!expandedSections.style ? 'collapsed' : ''}`}>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-amber-200/80 mb-2">Lighting</label>
-                  <select className="custom-select w-full">
+                  <select
+                    value={settings.lighting}
+                    onChange={(e) => setSettings(prev => ({ ...prev, lighting: e.target.value }))}
+                    className="custom-select w-full"
+                  >
                     <option value="soft studio lighting">soft studio lighting</option>
                     <option value="dramatic rim lighting">dramatic rim lighting</option>
                     <option value="warm golden hour">warm golden hour</option>
@@ -456,7 +631,11 @@ function App() {
                 </div>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-amber-200/80 mb-2">Background</label>
-                  <select className="custom-select w-full">
+                  <select
+                    value={settings.background}
+                    onChange={(e) => setSettings(prev => ({ ...prev, background: e.target.value }))}
+                    className="custom-select w-full"
+                  >
                     <option value="dark gradient">dark gradient</option>
                     <option value="smoky atmosphere">smoky atmosphere</option>
                     <option value="rich burgundy">rich burgundy</option>
@@ -466,7 +645,7 @@ function App() {
                 </div>
               </div>
             </div>
-            <button className="extra-btn w-full mt-4 ">🤫 Make it EXTRA</button>
+            <button onClick={makeItExtra} className="extra-btn w-full mt-4 ">🤫 Make it EXTRA</button>
             <button className="generate-btn w-full mt-4">✨ Transform Your Photo</button>
             <button onClick={() => setShowJson(!showJson)} className="json-toggle mt-4 text-sm">
               {showJson ? '▼ Hide Prompt JSON' : '▶ Show Prompt JSON'}
