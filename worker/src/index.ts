@@ -6,6 +6,7 @@ interface Env {
 
 interface CaricatureRequest {
 	prompt?: string;
+	model?: 'flux-1-schnell' | 'sdxl-lightning';
 	settings?: {
 		style?: {
 			type?: string;
@@ -49,6 +50,80 @@ interface CaricatureRequest {
 	width?: number;
 	height?: number;
 	steps?: number;
+}
+
+// Helper to convert stream to base64
+async function streamToBase64(stream: ReadableStream<Uint8Array>): Promise<string> {
+	const reader = stream.getReader();
+	const chunks: Uint8Array[] = [];
+
+	try {
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			chunks.push(value);
+		}
+	} finally {
+		reader.releaseLock();
+	}
+
+	// Combine chunks into single buffer
+	const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+	const buffer = new Uint8Array(totalLength);
+	let offset = 0;
+	for (const chunk of chunks) {
+		buffer.set(chunk, offset);
+		offset += chunk.length;
+	}
+
+	// Convert to base64
+	let binary = '';
+	for (let i = 0; i < buffer.byteLength; i++) {
+		binary += String.fromCharCode(buffer[i]);
+	}
+	return btoa(binary);
+}
+
+// Model-specific handlers
+async function generateFlux1Schnell(ai: Ai, request: CaricatureRequest, prompt: string) {
+	const steps = Math.min(request.steps || 4, 8);
+	const response = await ai.run('@cf/black-forest-labs/flux-1-schnell', {
+		prompt,
+		steps,
+	});
+
+	// FLUX-1 returns JSON with base64 image
+	if (response && typeof response === 'object' && 'image' in response) {
+		const imageData = (response as any).image;
+		return { image: `data:image/jpeg;base64,${imageData}` };
+	}
+
+	return response;
+}
+
+async function generateSDXLLightning(ai: Ai, request: CaricatureRequest, prompt: string) {
+	const steps = Math.min(request.steps || 4, 20);
+	const response = await ai.run('@cf/bytedance/stable-diffusion-xl-lightning', {
+		prompt,
+		width: request.width || 1024,
+		height: request.height || 1024,
+		num_steps: steps,
+	});
+
+	// SDXL-Lightning returns a ReadableStream with PNG binary data
+	const base64Image = await streamToBase64(response as ReadableStream<Uint8Array>);
+	return { image: `data:image/png;base64,${base64Image}` };
+}
+
+async function generateImage(ai: Ai, model: string, request: CaricatureRequest, prompt: string) {
+	switch (model) {
+		case 'flux-1-schnell':
+			return generateFlux1Schnell(ai, request, prompt);
+		case 'sdxl-lightning':
+			return generateSDXLLightning(ai, request, prompt);
+		default:
+			throw new Error(`Unknown model: ${model}`);
+	}
 }
 
 export default {
@@ -112,11 +187,24 @@ export default {
 		// API endpoint: POST /api/transform
 		if (url.pathname === '/api/transform' && request.method === 'POST') {
 			try {
-				// Check API key for localhost in development
-				const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
-				if (isLocalhost && env.API_KEY) {
-					const authHeader = request.headers.get('Authorization') || '';
-					const providedKey = authHeader.replace('Bearer ', '');
+				// Check API key if Bearer token is provided
+				const authHeader = request.headers.get('Authorization') || '';
+				const providedKey = authHeader.replace('Bearer ', '');
+
+				// If Bearer token is provided, validate it
+				if (authHeader && providedKey) {
+					if (!env.API_KEY) {
+						return new Response(
+							JSON.stringify({ error: 'Unauthorized: API key not configured' }),
+							{
+								status: 401,
+								headers: {
+									'Content-Type': 'application/json',
+									'Access-Control-Allow-Origin': origin,
+								},
+							}
+						);
+					}
 					if (providedKey !== env.API_KEY) {
 						return new Response(
 							JSON.stringify({ error: 'Unauthorized: Invalid API key' }),
@@ -201,13 +289,34 @@ export default {
 					);
 				}
 
-				// Generate caricature using FLUX.1 [schnell]
-				const response = await env.AI.run('@cf/black-forest-labs/flux-1-schnell', {
-					prompt: finalPrompt,
-					width: body.width || 1024,
-					height: body.height || 1024,
-					num_steps: body.steps || 4,
-				});
+				// Generate image using selected model (default: sdxl-lightning)
+				const model = body.model || 'sdxl-lightning';
+				let response;
+
+				try {
+					response = await generateImage(env.AI, model, body, finalPrompt);
+					console.log(`[${model}] Response type:`, typeof response);
+					console.log(`[${model}] Response keys:`, Object.keys(response || {}));
+					console.log(`[${model}] Response preview:`, JSON.stringify(response).substring(0, 200));
+				} catch (error) {
+					const errorMsg = error instanceof Error ? error.message : String(error);
+					if (errorMsg.includes('Unknown model')) {
+						return new Response(
+							JSON.stringify({
+								error: errorMsg,
+								availableModels: ['flux-1-schnell', 'sdxl-lightning'],
+							}),
+							{
+								status: 400,
+								headers: {
+									'Content-Type': 'application/json',
+									'Access-Control-Allow-Origin': origin,
+								},
+							}
+						);
+					}
+					throw error;
+				}
 
 				return new Response(JSON.stringify(response), {
 					headers: {

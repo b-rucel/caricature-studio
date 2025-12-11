@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 import Header from './components/Header'
 import Footer from './components/Footer'
@@ -30,7 +30,7 @@ function App() {
     forehead: 60,
     nose: 70,
     ears: 55,
-    subjectType: 'older man'
+    subjectType: ''
   });
 
   const [sectionEnabled, setSectionEnabled] = useState<SectionEnabled>({
@@ -77,23 +77,27 @@ function App() {
       }
 
       if (response.image) {
-        // FLUX model returns base64 encoded image
-        const imageData = typeof response.image === 'string'
-          ? response.image
-          : JSON.stringify(response.image);
-
-        setGeneratedImage(`data:image/png;base64,${imageData}`);
+        // Image is already a complete data URI from the worker
+        setGeneratedImage(response.image);
 
         // Add to history
         const newHistoryItem = {
-          image: `data:image/png;base64,${imageData}`,
+          image: response.image,
           prompt: jsonPrompt,
           timestamp: new Date().toISOString()
         };
 
         setHistory(prev => {
-          const updated = [newHistoryItem, ...prev].slice(0, 10); // Keep last 10
-          localStorage.setItem('caricature-history', JSON.stringify(updated));
+          const updated = [newHistoryItem, ...prev].slice(0, 15); // Keep last 5
+          try {
+            localStorage.setItem('caricature-history', JSON.stringify(updated));
+          } catch (err) {
+            if (err instanceof Error && err.name === 'QuotaExceededError') {
+              setError('History is full - please refresh the page to clear old creations');
+            } else {
+              console.error('Storage error:', err);
+            }
+          }
           return updated;
         });
       }
@@ -108,13 +112,23 @@ function App() {
 
   // Load from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem('caricature-history');
-    if (saved) {
-      setHistory(JSON.parse(saved));
+    try {
+      const saved = localStorage.getItem('caricature-history');
+      if (saved) {
+        setHistory(JSON.parse(saved));
+      }
+    } catch (err) {
+      console.error('Failed to load history:', err);
+      localStorage.removeItem('caricature-history');
     }
-    const savedPhoto = localStorage.getItem('caricature-user-photo');
-    if (savedPhoto) {
-      setUserPhoto(savedPhoto);
+    try {
+      const savedPhoto = localStorage.getItem('caricature-user-photo');
+      if (savedPhoto) {
+        setUserPhoto(savedPhoto);
+      }
+    } catch (err) {
+      console.error('Failed to load photo:', err);
+      localStorage.removeItem('caricature-user-photo');
     }
   }, []);
 
@@ -135,13 +149,25 @@ function App() {
   // Handle remove photo
   const handleRemovePhoto = () => {
     setUserPhoto(null);
-    localStorage.removeItem('caricature-user-photo');
+    try {
+      localStorage.removeItem('caricature-user-photo');
+    } catch (err) {
+      console.error('Failed to remove photo:', err);
+    }
   };
 
   // Handle photo selected from modal
   const handlePhotoSelected = (photoData: string) => {
     setUserPhoto(photoData);
-    localStorage.setItem('caricature-user-photo', photoData);
+    try {
+      localStorage.setItem('caricature-user-photo', photoData);
+    } catch (err) {
+      if (err instanceof Error && err.name === 'QuotaExceededError') {
+        setError('Storage is full - unable to save photo');
+      } else {
+        console.error('Failed to save photo:', err);
+      }
+    }
   };
 
   // Toggle accordion section
@@ -208,7 +234,13 @@ function App() {
 
             <div className="mb-6">
               <label className="block text-sm font-medium text-amber-200/80 mb-2">Subject Type</label>
-              <input type="text" className="custom-input w-full" placeholder="e.g., older man, young woman, businessman..." value="" />
+              <input
+                type="text"
+                className="custom-input w-full"
+                placeholder="e.g., older man, young woman, businessman..."
+                value={settings.subjectType}
+                onChange={(e) => setSettings(prev => ({ ...prev, subjectType: e.target.value }))}
+              />
             </div>
 
             <AccordionSection
