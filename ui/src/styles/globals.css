@@ -1,0 +1,128 @@
+:root {
+  --gold: #d4af37;
+  --gold-light: #f4d03f;
+  --gold-dark: #b8860b;
+  --dark-bg: #0f0f1a;
+  --dark-card: #1a1a2e;
+  --dark-accent: #16213e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Space Grotesk', sans-serif;
+  background: var(--dark-bg);
+  color: #e8e8e8;
+  margin: 0;
+  padding: 0;
+}
+
+.title-gradient {
+  font-family: 'Playfair Display', serif;
+  background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Custom slider styling */
+.custom-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 3px;
+  outline: none;
+}
+
+.custom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(145deg, var(--gold-light), var(--gold-dark));
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.4);
+  transition: transform 0.2s;
+}
+
+.custom-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.custom-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(145deg, var(--gold-light), var(--gold-dark));
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+
+/* Custom checkbox styling */
+.custom-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(212, 175, 55, 0.3);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.custom-checkbox:checked {
+  background: linear-gradient(145deg, var(--gold), var(--gold-dark));
+  border-color: var(--gold);
+}
+
+.custom-checkbox:checked::after {
+  content: '✓';
+  position: absolute;
+  color: #0f0f1a;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.custom-checkbox:hover {
+  border-color: var(--gold);
+}
+
+/* Custom select styling */
+.custom-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d4af37' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 20px;
+  padding-right: 32px;
+}
+
+.custom-select option {
+  background: var(--dark-card);
+  color: #e8e8e8;
+}
+
+/* Animations */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.4); }
+  50% { box-shadow: 0 0 0 10px rgba(255, 107, 107, 0); }
+}
+
+.animate-spin {
+  animation: spin 2s linear infinite;
+}
+
+.animate-pulse {
+  animation: pulse 1s infinite;
+}
