@@ -12,6 +12,7 @@ import { buildJsonPrompt } from './utils/promptBuilder'
 import { randomizeSettings, maximizeExaggerations, ALL_SECTIONS_ENABLED } from './utils/settingsHelpers'
 import { PRESETS } from './constants'
 import type { Preset } from './constants'
+import { generateCaricature } from './services/api'
 
 function App() {
   // State management
@@ -54,6 +55,56 @@ function App() {
   const [extraMode, setExtraMode] = useState(false);
   const [jsonCopied, setJsonCopied] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Handle generate caricature
+  const handleGenerateCaricature = async () => {
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const jsonPrompt = buildJsonPrompt(settings, sectionEnabled, userPhoto, extraMode);
+
+      const response = await generateCaricature({
+        settings: jsonPrompt,
+        userPhoto: userPhoto || undefined,
+        extraMode,
+      });
+
+      if (response.error) {
+        setError(response.error);
+        return;
+      }
+
+      if (response.image) {
+        // FLUX model returns base64 encoded image
+        const imageData = typeof response.image === 'string'
+          ? response.image
+          : JSON.stringify(response.image);
+
+        setGeneratedImage(`data:image/png;base64,${imageData}`);
+
+        // Add to history
+        const newHistoryItem = {
+          image: `data:image/png;base64,${imageData}`,
+          prompt: jsonPrompt,
+          timestamp: new Date().toISOString()
+        };
+
+        setHistory(prev => {
+          const updated = [newHistoryItem, ...prev].slice(0, 10); // Keep last 10
+          localStorage.setItem('caricature-history', JSON.stringify(updated));
+          return updated;
+        });
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to generate caricature';
+      setError(errorMessage);
+      console.error('Generation error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -356,7 +407,14 @@ function App() {
             </AccordionSection>
 
             <button onClick={makeItExtra} className="extra-btn w-full mt-4 ">🤫 Make it EXTRA</button>
-            <button className="generate-btn w-full mt-4">✨ Transform Your Photo</button>
+            <button onClick={handleGenerateCaricature} disabled={isLoading} className="generate-btn w-full mt-4">
+              {isLoading ? '⏳ Generating...' : '✨ Transform Your Photo'}
+            </button>
+            {error && (
+              <div className="mt-4 p-3 bg-red-500/20 border border-red-500/50 rounded text-red-200 text-sm">
+                {error}
+              </div>
+            )}
             <JsonDisplay
               isVisible={showJson}
               onToggle={() => setShowJson(!showJson)}
@@ -369,19 +427,32 @@ function App() {
           <div className="preview-panel">
             <h2 className="text-xl font-bold text-amber-100 mb-4">Preview</h2>
             <div className="image-frame">
-              <div className="placeholder-state">
-                <span className="text-6xl mb-4">🎨</span>
-                <p className="text-amber-200/40">Your masterpiece awaits</p>
-                <p className="text-amber-200/20 text-sm mt-2">Your photo is ready - click Generate!</p>
-              </div>
+              {generatedImage ? (
+                <img src={generatedImage} alt="Generated Caricature" className="generated-image" />
+              ) : (
+                <div className="placeholder-state">
+                  <span className="text-6xl mb-4">🎨</span>
+                  <p className="text-amber-200/40">Your masterpiece awaits</p>
+                  <p className="text-amber-200/20 text-sm mt-2">{isLoading ? 'Generating your caricature...' : 'Click Generate to create!'}</p>
+                </div>
+              )}
             </div>
-            {/* <div className="image-frame"><img src="https://caricature-studio.berrry.app/api/nanobanana/image/17914" alt="Generated Caricature" className="generated-image" /></div> */}
             <div className="history-section mt-8">
               <h3 className="text-amber-400/80 text-sm font-semibold mb-4 uppercase tracking-wider">Recent Creations</h3>
               <div className="history-grid">
-                <img src="https://caricature-studio.berrry.app/api/nanobanana/image/17914" alt="History 2" className="history-thumb" />
-                <img src="https://caricature-studio.berrry.app/api/nanobanana/image/17914" alt="History 2" className="history-thumb" />
-                <img src="https://caricature-studio.berrry.app/api/nanobanana/image/17914" alt="History 2" className="history-thumb" />
+                {history.length > 0 ? (
+                  history.map((item, idx) => (
+                    <img
+                      key={idx}
+                      src={item.image}
+                      alt={`History ${idx}`}
+                      className="history-thumb"
+                      title={new Date(item.timestamp).toLocaleString()}
+                    />
+                  ))
+                ) : (
+                  <p className="text-amber-200/40 text-sm col-span-3">No creations yet - make some magic!</p>
+                )}
               </div>
             </div>
           </div>
