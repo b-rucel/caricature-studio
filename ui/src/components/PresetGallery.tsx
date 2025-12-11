@@ -1,5 +1,5 @@
 import React from 'react';
-import { Preset } from '../types';
+import type { Preset } from '../constants';
 
 interface PresetGalleryProps {
   presets: Preset[];
