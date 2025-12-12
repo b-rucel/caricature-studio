@@ -9,6 +9,7 @@
   html {
     font-family: 'Space Grotesk', sans-serif;
     @apply bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950;
+    scrollbar-gutter: stable;
   }
 
   body {
