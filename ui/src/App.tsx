@@ -56,7 +56,9 @@ function App() {
   const [jsonCopied, setJsonCopied] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedModel, setSelectedModel] = useState<ModelType>('flux-1-schnell')
+  const [selectedModel, setSelectedModel] = useState<ModelType>('flux-1-schnell');
+  const [previewingHistoryItem, setPreviewingHistoryItem] = useState<any | null>(null);
+  const [deleteConfirmIdx, setDeleteConfirmIdx] = useState<number | null>(null);
 
   // Handle generate caricature
   const handleGenerateCaricature = async () => {
@@ -199,6 +201,31 @@ function App() {
   const applyPreset = (preset: Preset) => {
     setSettings(preset.settings);
     setSectionEnabled(ALL_SECTIONS_ENABLED);
+  };
+
+  // Confirm and delete history item
+  const confirmDeleteHistoryItem = (idx: number) => {
+    setHistory(prev => {
+      const updated = prev.filter((_, i) => i !== idx);
+      try {
+        localStorage.setItem('caricature-history', JSON.stringify(updated));
+      } catch (err) {
+        console.error('Failed to save history:', err);
+      }
+      return updated;
+    });
+    setDeleteConfirmIdx(null);
+  };
+
+  // Cancel deletion
+  const cancelDelete = () => {
+    setDeleteConfirmIdx(null);
+  };
+
+  // Preview history item
+  const previewHistoryItem = (item: any) => {
+    setPreviewingHistoryItem(item);
+    setGeneratedImage(item.image);
   };
 
   return (
@@ -491,13 +518,47 @@ function App() {
               <div className="history-grid">
                 {history.length > 0 ? (
                   history.map((item, idx) => (
-                    <img
+                    <div
                       key={idx}
-                      src={item.image}
-                      alt={`History ${idx}`}
-                      className="history-thumb"
-                      title={new Date(item.timestamp).toLocaleString()}
-                    />
+                      className="history-item-wrapper relative group"
+                    >
+                      {deleteConfirmIdx === idx ? (
+                        <div className="absolute inset-0 bg-black/70 rounded flex flex-col items-center justify-center gap-2 z-10">
+                          <p className="text-white text-xs font-semibold text-center px-2">Delete this?</p>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => confirmDeleteHistoryItem(idx)}
+                              className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold transition"
+                            >
+                              Yes
+                            </button>
+                            <button
+                              onClick={cancelDelete}
+                              className="bg-slate-600 hover:bg-slate-700 text-white px-2 py-1 rounded text-xs font-bold transition"
+                            >
+                              No
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <img
+                            src={item.image}
+                            alt={`History ${idx}`}
+                            className="history-thumb cursor-pointer hover:opacity-75 transition"
+                            title={new Date(item.timestamp).toLocaleString()}
+                            onClick={() => previewHistoryItem(item)}
+                          />
+                          <button
+                            onClick={() => setDeleteConfirmIdx(idx)}
+                            className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-sm font-bold"
+                            title="Delete this creation"
+                          >
+                            ✕
+                          </button>
+                        </>
+                      )}
+                    </div>
                   ))
                 ) : (
                   <p className="text-amber-200/40 text-sm col-span-3">No creations yet - make some magic!</p>
