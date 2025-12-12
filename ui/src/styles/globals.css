@@ -20,7 +20,7 @@ body {
 }
 
 .title-gradient {
-  font-family: 'Playfair Display', serif;
+  /* font-family: 'Playfair Display', serif; */
   background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;

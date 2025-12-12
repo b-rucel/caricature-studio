@@ -1,7 +1,10 @@
+import type { ModelType } from '../constants'
+
 export interface GenerateCaricatureRequest {
   settings?: any;
   userPhoto?: string;
   extraMode?: boolean;
+  model?: ModelType;
   width?: number;
   height?: number;
   steps?: number;

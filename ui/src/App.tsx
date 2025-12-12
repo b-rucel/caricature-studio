@@ -10,8 +10,8 @@ import { PhotoUploadModal } from './components/PhotoUploadModal'
 import type { Settings, SectionEnabled } from './types'
 import { buildJsonPrompt } from './utils/promptBuilder'
 import { randomizeSettings, maximizeExaggerations, ALL_SECTIONS_ENABLED } from './utils/settingsHelpers'
-import { PRESETS } from './constants'
-import type { Preset } from './constants'
+import { PRESETS, AVAILABLE_MODELS } from './constants'
+import type { Preset, ModelType } from './constants'
 import { generateCaricature } from './services/api'
 
 function App() {
@@ -56,6 +56,7 @@ function App() {
   const [jsonCopied, setJsonCopied] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<ModelType>('flux-1-schnell')
 
   // Handle generate caricature
   const handleGenerateCaricature = async () => {
@@ -69,6 +70,7 @@ function App() {
         settings: jsonPrompt,
         userPhoto: userPhoto || undefined,
         extraMode,
+        model: selectedModel,
       });
 
       if (response.error) {
@@ -230,6 +232,21 @@ function App() {
                   <span>Add Your Photo</span>
                 </button>
               )}
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-amber-200/80 mb-2">Model</label>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value as ModelType)}
+                className="custom-select w-full"
+              >
+                {AVAILABLE_MODELS.map(model => (
+                  <option key={model} value={model}>
+                    {model === 'flux-1-schnell' ? 'FLUX 1 Schnell' : 'SDXL Lightning'}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="mb-6">

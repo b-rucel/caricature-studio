@@ -7,36 +7,55 @@ AI-powered caricature generation using Cloudflare Workers and FLUX.1 image gener
 
 This project uses **Cloudflare Workers AI** with the **flux-1-schnell** model for image generation. Here's what you need to know about free tier usage:
 
-### Daily Limits
+### Daily Free Allocation
 
 - **10,000 neurons per day** (free, resets daily at 00:00 UTC)
 - **No cost** within this limit
 - No credit card required
 
-### Image Generation Capacity
+### Model Comparison (1024×1024 resolution)
 
-With your current configuration (1024×1024 resolution, 4 steps):
+| Model | Steps | Neurons/Image | Images/Day (Free) | Cost/100 Images |
+|-------|-------|---------------|-------------------|-----------------|
+| **FLUX-1 Schnell** | 4 | 57.6 | 173 | $0.063 |
+| **FLUX-1 Schnell** | 2 | 38.4 | 260 | $0.042 |
+| **FLUX-1 Schnell** | 1 | 28.8 | 347 | $0.032 |
+| **FLUX-2 Dev** | 4 | 900 | 11 | $0.99 |
+| **FLUX-2 Dev** | 1 | 225 | 44 | $0.25 |
+| **Phoenix 1.0** | 25 | 2,370 | 4 | $2.61 |
+| **Phoenix 1.0** | 10 | 1,130 | 8 | $1.24 |
+| **SDXL Lightning** | 4 | Free | ∞ | Free |
+| **SDXL Base** | 4 | Free | ∞ | Free |
 
-| Metric | Value |
-|--------|-------|
-| **Neurons per image** | ~57.6 neurons |
-| **Maximum images/day** | ~173 images |
-| **Your target** | 30 images/day |
-| **Available headroom** | 5.8× your needs |
+### Detailed Cost Breakdown
 
-**✓ You can easily handle 30+ images per day on free tier**
+#### FLUX-1 Schnell
+- **Tile cost**: 1024×1024 = 4 tiles × 4.80 neurons = 19.2 neurons
+- **Step cost**: X steps × 9.60 neurons = (X × 9.60) neurons
+- **Total**: 19.2 + (X × 9.60) neurons
 
-### Cost Breakdown
+#### FLUX-2 Dev
+- **Input tiles**: 4 tiles × 18.75 neurons/step = 75 neurons/step
+- **Output tiles**: 4 tiles × 37.50 neurons/step = 150 neurons/step
+- **Total**: 225 × X neurons (where X = steps)
+- *Note: More expensive but higher quality; best for critical outputs*
 
-- **Resolution**: 1024×1024 = 4 tiles × 4.80 neurons = 19.2 neurons
-- **Steps**: 4 steps × 9.60 neurons = 38.4 neurons
-- **Total per image**: 57.6 neurons
+#### Phoenix 1.0
+- **Tile cost**: 1024×1024 = 4 tiles × 530 neurons = 2,120 neurons
+- **Step cost**: X steps × 10 neurons = (X × 10) neurons
+- **Total**: 2,120 + (X × 10) neurons
+- *Note: Most expensive but unique artistic style; 25 steps recommended*
+
+#### SDXL Lightning & SDXL Base
+- **Cost**: Free (beta models, no neuron limit)
+- **Quality**: Excellent for fast iteration and testing
+- **Best for**: Development and high-volume generation
 
 ### Rate Limits
 
-Text-to-image requests have a **720 requests/minute** limit:
+Text-to-image requests have a **720 requests/minute** limit across all models:
 - ~43,200 requests/day maximum
-- You'll hit the neuron limit long before hitting rate limits
+- You'll hit the neuron limit long before hitting rate limits (except with SDXL beta models)
 
 ### Optimization Options
 

@@ -1,3 +1,12 @@
+import { generateFlux1Schnell } from './models/flux1Schnell';
+import { generateFlux2Dev } from './models/flux2Dev';
+import { generateSDXLLightning } from './models/sdxlLightning';
+import { generatePhoenix } from './models/phoenix';
+import { generateLucidOrigin } from './models/lucidOrigin';
+
+const AVAILABLE_MODELS = ['flux-1-schnell', 'flux-2-dev', 'sdxl-lightning', 'phoenix-1.0', 'lucid-origin'] as const;
+type ModelType = typeof AVAILABLE_MODELS[number];
+
 interface Env {
 	AI: Ai;
 	ALLOWED_ORIGINS: string;
@@ -6,7 +15,7 @@ interface Env {
 
 interface CaricatureRequest {
 	prompt?: string;
-	model?: 'flux-1-schnell' | 'sdxl-lightning';
+	model?: ModelType;
 	settings?: {
 		style?: {
 			type?: string;
@@ -52,75 +61,19 @@ interface CaricatureRequest {
 	steps?: number;
 }
 
-// Helper to convert stream to base64
-async function streamToBase64(stream: ReadableStream<Uint8Array>): Promise<string> {
-	const reader = stream.getReader();
-	const chunks: Uint8Array[] = [];
-
-	try {
-		while (true) {
-			const { done, value } = await reader.read();
-			if (done) break;
-			chunks.push(value);
-		}
-	} finally {
-		reader.releaseLock();
-	}
-
-	// Combine chunks into single buffer
-	const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-	const buffer = new Uint8Array(totalLength);
-	let offset = 0;
-	for (const chunk of chunks) {
-		buffer.set(chunk, offset);
-		offset += chunk.length;
-	}
-
-	// Convert to base64
-	let binary = '';
-	for (let i = 0; i < buffer.byteLength; i++) {
-		binary += String.fromCharCode(buffer[i]);
-	}
-	return btoa(binary);
-}
-
-// Model-specific handlers
-async function generateFlux1Schnell(ai: Ai, request: CaricatureRequest, prompt: string) {
-	const steps = Math.min(request.steps || 4, 8);
-	const response = await ai.run('@cf/black-forest-labs/flux-1-schnell', {
-		prompt,
-		steps,
-	});
-
-	// FLUX-1 returns JSON with base64 image
-	if (response && typeof response === 'object' && 'image' in response) {
-		const imageData = (response as any).image;
-		return { image: `data:image/jpeg;base64,${imageData}` };
-	}
-
-	return response;
-}
-
-async function generateSDXLLightning(ai: Ai, request: CaricatureRequest, prompt: string) {
-	const steps = Math.min(request.steps || 4, 20);
-	const response = await ai.run('@cf/bytedance/stable-diffusion-xl-lightning', {
-		prompt,
-		width: request.width || 1024,
-		height: request.height || 1024,
-		num_steps: steps,
-	});
-
-	// SDXL-Lightning returns a ReadableStream with PNG binary data
-	const base64Image = await streamToBase64(response as ReadableStream<Uint8Array>);
-	return { image: `data:image/png;base64,${base64Image}` };
-}
 
 async function generateImage(ai: Ai, model: string, request: CaricatureRequest, prompt: string) {
 	switch (model) {
 		case 'flux-1-schnell':
 			return generateFlux1Schnell(ai, request, prompt);
+		case 'flux-2-dev':
+			return generateFlux2Dev(ai, request, prompt);
 		case 'sdxl-lightning':
 			return generateSDXLLightning(ai, request, prompt);
+		case 'phoenix-1.0':
+			return generatePhoenix(ai, request, prompt);
+		case 'lucid-origin':
+			return generateLucidOrigin(ai, request, prompt);
 		default:
 			throw new Error(`Unknown model: ${model}`);
 	}
@@ -187,15 +140,49 @@ export default {
 		// API endpoint: POST /api/transform
 		if (url.pathname === '/api/transform' && request.method === 'POST') {
 			try {
-				// Check API key if Bearer token is provided
 				const authHeader = request.headers.get('Authorization') || '';
 				const providedKey = authHeader.replace('Bearer ', '');
+				const clientIP = request.headers.get('CF-Connecting-IP') || '';
+console.log('clien†IP - ------')
+				console.log(clientIP)
+				const isLocalhost = clientIP === '127.0.0.1' || clientIP === '::1' || clientIP.startsWith('::ffff:127.');
 
-				// If Bearer token is provided, validate it
-				if (authHeader && providedKey) {
+				// localhost requests
+				if (isLocalhost) {
+					// If bearer token is provided, validate it against API_KEY
+					if (authHeader && providedKey) {
+						if (!env.API_KEY) {
+							return new Response(
+								JSON.stringify({ error: 'Unauthorized: API key not configured' }),
+								{
+									status: 401,
+									headers: {
+										'Content-Type': 'application/json',
+										'Access-Control-Allow-Origin': origin,
+									},
+								}
+							);
+						}
+						if (providedKey !== env.API_KEY) {
+							return new Response(
+								JSON.stringify({ error: 'Unauthorized: Invalid API key' }),
+								{
+									status: 401,
+									headers: {
+										'Content-Type': 'application/json',
+										'Access-Control-Allow-Origin': origin,
+									},
+								}
+							);
+						}
+					}
+					// If no bearer token, allow localhost requests
+				} else {
+					// Non-localhost requests (deployed origin or spoofed origin)
+					// Always require API key to be configured
 					if (!env.API_KEY) {
 						return new Response(
-							JSON.stringify({ error: 'Unauthorized: API key not configured' }),
+							JSON.stringify({ error: 'Unauthorized: API key required' }),
 							{
 								status: 401,
 								headers: {
@@ -205,6 +192,21 @@ export default {
 							}
 						);
 					}
+
+					// Require and validate bearer token
+					if (!authHeader || !providedKey) {
+						return new Response(
+							JSON.stringify({ error: 'Unauthorized: Bearer token required' }),
+							{
+								status: 401,
+								headers: {
+									'Content-Type': 'application/json',
+									'Access-Control-Allow-Origin': origin,
+								},
+							}
+						);
+					}
+
 					if (providedKey !== env.API_KEY) {
 						return new Response(
 							JSON.stringify({ error: 'Unauthorized: Invalid API key' }),
@@ -290,21 +292,21 @@ export default {
 				}
 
 				// Generate image using selected model (default: sdxl-lightning)
-				const model = body.model || 'sdxl-lightning';
+				const model = body.model || 'flux-2-dev';
 				let response;
 
 				try {
 					response = await generateImage(env.AI, model, body, finalPrompt);
-					console.log(`[${model}] Response type:`, typeof response);
-					console.log(`[${model}] Response keys:`, Object.keys(response || {}));
-					console.log(`[${model}] Response preview:`, JSON.stringify(response).substring(0, 200));
+					// console.log(`[${model}] Response type:`, typeof response);
+					// console.log(`[${model}] Response keys:`, Object.keys(response || {}));
+					// console.log(`[${model}] Response preview:`, JSON.stringify(response).substring(0, 200));
 				} catch (error) {
 					const errorMsg = error instanceof Error ? error.message : String(error);
 					if (errorMsg.includes('Unknown model')) {
 						return new Response(
 							JSON.stringify({
 								error: errorMsg,
-								availableModels: ['flux-1-schnell', 'sdxl-lightning'],
+								availableModels: AVAILABLE_MODELS,
 							}),
 							{
 								status: 400,
