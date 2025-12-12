@@ -34,7 +34,7 @@
 		"binding": "AI"
 	},
 	"vars": {
-		"ALLOWED_ORIGINS": "http://localhost:5173,http://localhost:3000,http://localhost:8787"
+		"ALLOWED_ORIGINS": "http://localhost:5173,http://localhost:3000,http://localhost:8787,https://b218352d.caricature-studio.pages.dev"
 	}
 	/**
 	 * Smart Placement
