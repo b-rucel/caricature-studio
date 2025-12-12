@@ -16,7 +16,7 @@ export const PresetGallery: React.FC<PresetGalleryProps> = ({
         <h3 className="text-amber-400/80 text-sm font-semibold mb-4 uppercase tracking-wider">
           Quick Presets
         </h3>
-        <div className="flex gap-3 pb-2 overflow-x-auto overflow-y-hidden snap-x snap-mandatory md:overflow-x-visible">
+        <div className="flex gap-3 pb-2 overflow-x-auto snap-x snap-mandatory md:overflow-x-visible">
           {presets.map((preset) => (
             <button
               key={preset.name}

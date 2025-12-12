@@ -92,7 +92,7 @@ function App() {
         };
 
         setHistory(prev => {
-          const updated = [newHistoryItem, ...prev].slice(0, 15); // Keep last 5
+          const updated = [newHistoryItem, ...prev].slice(0, 10);
           try {
             localStorage.setItem('caricature-history', JSON.stringify(updated));
           } catch (err) {
