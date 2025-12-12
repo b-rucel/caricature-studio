@@ -16,7 +16,11 @@
     @apply text-amber-100;
   }
 
-  h1, h2, h4, h5, h6 {
+  h1,
+  h2,
+  h4,
+  h5,
+  h6 {
     /* font-family: 'Playfair Display', serif; */
   }
 
@@ -41,9 +45,7 @@
 
 /* Custom components */
 @layer components {
-  main {
-    width: 1280px;
-  }
+  main {}
 
   .title-text {
     @apply bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 bg-clip-text text-transparent;
@@ -133,9 +135,12 @@
 
 /* Animations */
 @keyframes glow {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 5px rgba(251, 191, 36, 0.3);
   }
+
   50% {
     box-shadow: 0 0 20px rgba(251, 191, 36, 0.5);
   }
@@ -146,6 +151,7 @@
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -176,4 +182,3 @@
 .secondary-button {
   @apply px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition;
 }
-

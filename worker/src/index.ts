@@ -13,7 +13,7 @@ interface Env {
   API_KEY?: string;
 }
 
-interface CaricatureRequest {
+export interface CaricatureRequest {
   prompt?: string;
   model?: ModelType;
   settings?: {
@@ -93,7 +93,7 @@ export default {
       // Check if it's a localhost request
       if (origin.includes('localhost') && allowed.includes('localhost')) return true;
       return false;
-    }) || origin.endsWith('.caricature-studio.pages.dev');
+    }) || origin.includes('caricature-studio.pages.dev');
 
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
