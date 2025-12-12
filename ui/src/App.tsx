@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 import Header from './components/Header'
 import Footer from './components/Footer'
@@ -10,8 +10,9 @@ import { PhotoUploadModal } from './components/PhotoUploadModal'
 import type { Settings, SectionEnabled } from './types'
 import { buildJsonPrompt } from './utils/promptBuilder'
 import { randomizeSettings, maximizeExaggerations, ALL_SECTIONS_ENABLED } from './utils/settingsHelpers'
-import { PRESETS } from './constants'
-import type { Preset } from './constants'
+import { PRESETS, AVAILABLE_MODELS } from './constants'
+import type { Preset, ModelType } from './constants'
+import { generateCaricature } from './services/api'
 
 function App() {
   // State management
@@ -29,7 +30,7 @@ function App() {
     forehead: 60,
     nose: 70,
     ears: 55,
-    subjectType: 'older man'
+    subjectType: ''
   });
 
   const [sectionEnabled, setSectionEnabled] = useState<SectionEnabled>({
@@ -54,16 +55,82 @@ function App() {
   const [extraMode, setExtraMode] = useState(false);
   const [jsonCopied, setJsonCopied] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<ModelType>('flux-1-schnell')
+
+  // Handle generate caricature
+  const handleGenerateCaricature = async () => {
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const jsonPrompt = buildJsonPrompt(settings, sectionEnabled, userPhoto, extraMode);
+
+      const response = await generateCaricature({
+        settings: jsonPrompt,
+        userPhoto: userPhoto || undefined,
+        extraMode,
+        model: selectedModel,
+      });
+
+      if (response.error) {
+        setError(response.error);
+        return;
+      }
+
+      if (response.image) {
+        // Image is already a complete data URI from the worker
+        setGeneratedImage(response.image);
+
+        // Add to history
+        const newHistoryItem = {
+          image: response.image,
+          prompt: jsonPrompt,
+          timestamp: new Date().toISOString()
+        };
+
+        setHistory(prev => {
+          const updated = [newHistoryItem, ...prev].slice(0, 15); // Keep last 5
+          try {
+            localStorage.setItem('caricature-history', JSON.stringify(updated));
+          } catch (err) {
+            if (err instanceof Error && err.name === 'QuotaExceededError') {
+              setError('History is full - please refresh the page to clear old creations');
+            } else {
+              console.error('Storage error:', err);
+            }
+          }
+          return updated;
+        });
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to generate caricature';
+      setError(errorMessage);
+      console.error('Generation error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Load from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem('caricature-history');
-    if (saved) {
-      setHistory(JSON.parse(saved));
+    try {
+      const saved = localStorage.getItem('caricature-history');
+      if (saved) {
+        setHistory(JSON.parse(saved));
+      }
+    } catch (err) {
+      console.error('Failed to load history:', err);
+      localStorage.removeItem('caricature-history');
     }
-    const savedPhoto = localStorage.getItem('caricature-user-photo');
-    if (savedPhoto) {
-      setUserPhoto(savedPhoto);
+    try {
+      const savedPhoto = localStorage.getItem('caricature-user-photo');
+      if (savedPhoto) {
+        setUserPhoto(savedPhoto);
+      }
+    } catch (err) {
+      console.error('Failed to load photo:', err);
+      localStorage.removeItem('caricature-user-photo');
     }
   }, []);
 
@@ -84,13 +151,25 @@ function App() {
   // Handle remove photo
   const handleRemovePhoto = () => {
     setUserPhoto(null);
-    localStorage.removeItem('caricature-user-photo');
+    try {
+      localStorage.removeItem('caricature-user-photo');
+    } catch (err) {
+      console.error('Failed to remove photo:', err);
+    }
   };
 
   // Handle photo selected from modal
   const handlePhotoSelected = (photoData: string) => {
     setUserPhoto(photoData);
-    localStorage.setItem('caricature-user-photo', photoData);
+    try {
+      localStorage.setItem('caricature-user-photo', photoData);
+    } catch (err) {
+      if (err instanceof Error && err.name === 'QuotaExceededError') {
+        setError('Storage is full - unable to save photo');
+      } else {
+        console.error('Failed to save photo:', err);
+      }
+    }
   };
 
   // Toggle accordion section
@@ -156,8 +235,29 @@ function App() {
             </div>
 
             <div className="mb-6">
+              <label className="block text-sm font-medium text-amber-200/80 mb-2">Model</label>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value as ModelType)}
+                className="custom-select w-full"
+              >
+                {AVAILABLE_MODELS.map(model => (
+                  <option key={model} value={model}>
+                    {model === 'flux-1-schnell' ? 'FLUX 1 Schnell' : 'SDXL Lightning'}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mb-6">
               <label className="block text-sm font-medium text-amber-200/80 mb-2">Subject Type</label>
-              <input type="text" className="custom-input w-full" placeholder="e.g., older man, young woman, businessman..." value="" />
+              <input
+                type="text"
+                className="custom-input w-full"
+                placeholder="e.g., older man, young woman, businessman..."
+                value={settings.subjectType}
+                onChange={(e) => setSettings(prev => ({ ...prev, subjectType: e.target.value }))}
+              />
             </div>
 
             <AccordionSection
@@ -356,7 +456,14 @@ function App() {
             </AccordionSection>
 
             <button onClick={makeItExtra} className="extra-btn w-full mt-4 ">🤫 Make it EXTRA</button>
-            <button className="generate-btn w-full mt-4">✨ Transform Your Photo</button>
+            <button onClick={handleGenerateCaricature} disabled={isLoading} className="generate-btn w-full mt-4">
+              {isLoading ? '⏳ Generating...' : '✨ Transform Your Photo'}
+            </button>
+            {error && (
+              <div className="mt-4 p-3 bg-red-500/20 border border-red-500/50 rounded text-red-200 text-sm">
+                {error}
+              </div>
+            )}
             <JsonDisplay
               isVisible={showJson}
               onToggle={() => setShowJson(!showJson)}
@@ -369,19 +476,32 @@ function App() {
           <div className="preview-panel">
             <h2 className="text-xl font-bold text-amber-100 mb-4">Preview</h2>
             <div className="image-frame">
-              <div className="placeholder-state">
-                <span className="text-6xl mb-4">🎨</span>
-                <p className="text-amber-200/40">Your masterpiece awaits</p>
-                <p className="text-amber-200/20 text-sm mt-2">Your photo is ready - click Generate!</p>
-              </div>
+              {generatedImage ? (
+                <img src={generatedImage} alt="Generated Caricature" className="generated-image" />
+              ) : (
+                <div className="placeholder-state">
+                  <span className="text-6xl mb-4">🎨</span>
+                  <p className="text-amber-200/40">Your masterpiece awaits</p>
+                  <p className="text-amber-200/20 text-sm mt-2">{isLoading ? 'Generating your caricature...' : 'Click Generate to create!'}</p>
+                </div>
+              )}
             </div>
-            {/* <div className="image-frame"><img src="https://caricature-studio.berrry.app/api/nanobanana/image/17914" alt="Generated Caricature" className="generated-image" /></div> */}
             <div className="history-section mt-8">
               <h3 className="text-amber-400/80 text-sm font-semibold mb-4 uppercase tracking-wider">Recent Creations</h3>
               <div className="history-grid">
-                <img src="https://caricature-studio.berrry.app/api/nanobanana/image/17914" alt="History 2" className="history-thumb" />
-                <img src="https://caricature-studio.berrry.app/api/nanobanana/image/17914" alt="History 2" className="history-thumb" />
-                <img src="https://caricature-studio.berrry.app/api/nanobanana/image/17914" alt="History 2" className="history-thumb" />
+                {history.length > 0 ? (
+                  history.map((item, idx) => (
+                    <img
+                      key={idx}
+                      src={item.image}
+                      alt={`History ${idx}`}
+                      className="history-thumb"
+                      title={new Date(item.timestamp).toLocaleString()}
+                    />
+                  ))
+                ) : (
+                  <p className="text-amber-200/40 text-sm col-span-3">No creations yet - make some magic!</p>
+                )}
               </div>
             </div>
           </div>

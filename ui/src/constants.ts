@@ -28,6 +28,17 @@ export interface Preset {
   settings: Settings;
 }
 
+export const AVAILABLE_MODELS = [
+  'sdxl-lightning',
+  // 'flux-1-schnell',
+] as const;
+// 'sdxl-lightning' - free
+// 'flux-1-schnell'
+// 'flux-2-dev'
+// 'phoenix-1.0' - expensive
+// 'lucid-origin' - expensive
+export type ModelType = typeof AVAILABLE_MODELS[number];
+
 export const HAIR_COLORS = ['blond', 'dark brown', 'black', 'gray', 'white', 'red', 'auburn', 'silver'];
 export const HAIR_STYLES = ['voluminous swept to side', 'slicked back', 'curly', 'bald', 'spiky', 'wavy', 'short cropped', 'wild and messy'];
 export const EXPRESSIONS = ['stern', 'smiling warmly', 'surprised', 'pouty', 'smug', 'contemplative', 'mischievous', 'serious'];
@@ -55,7 +66,7 @@ export const PRESETS: Preset[] = [
       forehead: 60,
       nose: 75,
       ears: 50,
-      subjectType: 'older man'
+      subjectType: 'Distinguished Gentleman'
     }
   },
   {
@@ -75,7 +86,7 @@ export const PRESETS: Preset[] = [
       forehead: 70,
       nose: 80,
       ears: 60,
-      subjectType: 'older man'
+      subjectType: 'Stern Leader'
     }
   },
   {
@@ -95,7 +106,7 @@ export const PRESETS: Preset[] = [
       forehead: 50,
       nose: 65,
       ears: 45,
-      subjectType: 'young woman'
+      subjectType: 'Friendly Celebrity'
     }
   },
   {
@@ -115,7 +126,7 @@ export const PRESETS: Preset[] = [
       forehead: 90,
       nose: 85,
       ears: 70,
-      subjectType: 'scientist'
+      subjectType: 'Mad Scientist'
     }
   }
 ];
