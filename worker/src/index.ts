@@ -85,7 +85,13 @@ export default {
     const origin = request.headers.get('origin') || '';
     const allowedOrigins = env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
 
-    // Validate origin
+    const authHeader = request.headers.get('Authorization') || '';
+    const providedKey = authHeader.replace('Bearer ', '');
+
+    const clientIP = request.headers.get('CF-Connecting-IP') || '';
+    const isLocalhost = clientIP === '127.0.0.1' || clientIP === '::1' || clientIP.startsWith('::ffff:127.');
+
+    // validate origin
     const isOriginAllowed = allowedOrigins.some(allowed => {
       // Exact match or wildcard
       if (allowed === '*') return true;
@@ -127,7 +133,7 @@ export default {
         message: 'Caricature Studio Worker is running',
         endpoints: {
           transform: 'POST /api/transform',
-          health: 'GET /health'
+          health: 'GET /'
         }
       }), {
         headers: {
@@ -140,18 +146,17 @@ export default {
     // API endpoint: POST /api/transform
     if (url.pathname === '/api/transform' && request.method === 'POST') {
       try {
-        const authHeader = request.headers.get('Authorization') || '';
-        const providedKey = authHeader.replace('Bearer ', '');
-        const clientIP = request.headers.get('CF-Connecting-IP') || '';
-        const isLocalhost = clientIP === '127.0.0.1' || clientIP === '::1' || clientIP.startsWith('::ffff:127.');
+        // API Key validation for localhost origins only
+        const isLocalhostOrigin = origin.includes('localhost');
 
-        // API Key validation is ONLY for localhost
-        // Production/deployed versions rely solely on CORS origin whitelist
-        if (isLocalhost && authHeader && providedKey) {
-          // localhost with bearer token - validate it
-          if (!env.API_KEY) {
+        if (isLocalhostOrigin) {
+          const authHeader = request.headers.get('Authorization') || '';
+          const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+
+          // If bearer token is present, API_KEY must be configured
+          if (bearerToken && !env.API_KEY) {
             return new Response(
-              JSON.stringify({ error: 'Unauthorized: API key not configured' }),
+              JSON.stringify({ error: 'Unauthorized: Incorrect Key' }),
               {
                 status: 401,
                 headers: {
@@ -161,20 +166,37 @@ export default {
               }
             );
           }
-          if (providedKey !== env.API_KEY) {
-            return new Response(
-              JSON.stringify({ error: 'Unauthorized: Invalid API key' }),
-              {
-                status: 401,
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Access-Control-Allow-Origin': origin,
-                },
-              }
-            );
+
+          // If API_KEY is configured, bearer token is required and must match
+          if (env.API_KEY) {
+            if (!bearerToken) {
+              return new Response(
+                JSON.stringify({ error: 'Unauthorized: Bearer token required' }),
+                {
+                  status: 401,
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': origin,
+                  },
+                }
+              );
+            }
+            if (bearerToken !== env.API_KEY) {
+              return new Response(
+                JSON.stringify({ error: 'Unauthorized: Invalid API key' }),
+                {
+                  status: 401,
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': origin,
+                  },
+                }
+              );
+            }
           }
         }
-        // For non-localhost requests: CORS origin check already passed, no API key needed
+        // For non-localhost origins: CORS origin check already passed, no API key check needed
+
 
         const body = (await request.json()) as CaricatureRequest;
 
@@ -252,6 +274,7 @@ export default {
 
         try {
           response = await generateImage(env.AI, model, body, finalPrompt);
+
           // console.log(`[${model}] Response type:`, typeof response);
           // console.log(`[${model}] Response keys:`, Object.keys(response || {}));
           // console.log(`[${model}] Response preview:`, JSON.stringify(response).substring(0, 200));
@@ -297,16 +320,6 @@ export default {
           }
         );
       }
-    }
-
-    // Health check endpoint
-    if (url.pathname === '/health') {
-      return new Response(JSON.stringify({ status: 'ok' }), {
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': origin,
-        },
-      });
     }
 
     return new Response('Not found', { status: 404 });
