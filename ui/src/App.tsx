@@ -532,8 +532,9 @@ function App() {
               </div>
             </AccordionSection>
 
-            <button onClick={makeItExtra} className="extra-btn w-full mt-4 ">🤫 Make it EXTRA</button>
             {!isLocalhost && <div id="turnstile-container" className="mb-4"></div>}
+
+            <button onClick={makeItExtra} className="extra-btn w-full mt-4 ">🤫 Make it EXTRA</button>
             <button onClick={handleGenerateCaricature} disabled={isLoading || !turnstileToken} className="generate-btn w-full mt-4">
               {isLoading ? '⏳ Generating...' : '✨ Transform Your Photo'}
             </button>
