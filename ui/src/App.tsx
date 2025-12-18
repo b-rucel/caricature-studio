@@ -137,9 +137,16 @@ function App() {
       return; // Skip Turnstile widget on localhost
     }
 
+    const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY;
+
+    if (!siteKey) {
+      setError('Turnstile configuration is missing. Please contact support.');
+      return;
+    }
+
     if (typeof window !== 'undefined' && (window as any).turnstile) {
       const widgetId = (window as any).turnstile.render('#turnstile-container', {
-        sitekey: import.meta.env.VITE_TURNSTILE_SITE_KEY,
+        sitekey: siteKey,
         callback: (token: string) => {
           setTurnstileToken(token);
         },
