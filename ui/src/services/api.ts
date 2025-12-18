@@ -18,25 +18,23 @@ export interface GenerateCaricatureResponse {
 
 // Use environment variable or fallback to localhost for dev
 const API_BASE_URL = import.meta.env.VITE_WORKER_URL || 'http://localhost:8787';
-const API_KEY = import.meta.env.VITE_API_KEY;
 
 export async function generateCaricature(
-  request: GenerateCaricatureRequest
+  request: GenerateCaricatureRequest,
+  turnstileToken: string | null
 ): Promise<GenerateCaricatureResponse> {
   try {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
 
-    // Add API key if available (for localhost/dev)
-    if (API_KEY) {
-      headers['Authorization'] = `Bearer ${API_KEY}`;
-    }
-
     const response = await fetch(`${API_BASE_URL}/api/transform`, {
       method: 'POST',
       headers,
-      body: JSON.stringify(request),
+      body: JSON.stringify({
+        ...request,
+        turnstileToken: turnstileToken || undefined,
+      }),
     });
 
     if (!response.ok) {

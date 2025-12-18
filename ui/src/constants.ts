@@ -28,15 +28,21 @@ export interface Preset {
   settings: Settings;
 }
 
+/**
+ * https://developers.cloudflare.com/workers-ai/models/stable-diffusion-xl-lightning/
+ * https://developers.cloudflare.com/workers-ai/models/flux-1-schnell/
+ * https://developers.cloudflare.com/workers-ai/models/flux-2-dev/
+ * https://developers.cloudflare.com/workers-ai/models/phoenix-1.0/
+ * https://developers.cloudflare.com/workers-ai/models/lucid-origin/
+ * 
+ */
 export const AVAILABLE_MODELS = [
-  'sdxl-lightning',
-  // 'flux-1-schnell',
+  'sdxl-lightning', // free
+  'flux-1-schnell', // cheap
+  // 'flux-2-dev', // moderate
+  // 'phoenix-1.0', // expensive
+  // 'lucid-origin', // expensive
 ] as const;
-// 'sdxl-lightning' - free
-// 'flux-1-schnell'
-// 'flux-2-dev'
-// 'phoenix-1.0' - expensive
-// 'lucid-origin' - expensive
 export type ModelType = typeof AVAILABLE_MODELS[number];
 
 export const HAIR_COLORS = ['blond', 'dark brown', 'black', 'gray', 'white', 'red', 'auburn', 'silver'];

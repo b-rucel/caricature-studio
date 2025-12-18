@@ -10,7 +10,7 @@ type ModelType = typeof AVAILABLE_MODELS[number];
 interface Env {
   AI: Ai;
   ALLOWED_ORIGINS: string;
-  API_KEY?: string;
+  TURNSTILE_SECRET_KEY: string;
 }
 
 export interface CaricatureRequest {
@@ -59,8 +59,8 @@ export interface CaricatureRequest {
   width?: number;
   height?: number;
   steps?: number;
+  turnstileToken?: string;
 }
-
 
 async function generateImage(ai: Ai, model: string, request: CaricatureRequest, prompt: string) {
   switch (model) {
@@ -79,27 +79,63 @@ async function generateImage(ai: Ai, model: string, request: CaricatureRequest, 
   }
 }
 
+async function validateTurnstile(
+  token: string,
+  secretKey: string,
+  clientIP: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const formData = new FormData();
+    formData.append('secret', secretKey);
+    formData.append('response', token);
+    formData.append('remoteip', clientIP);
+
+    const result = await fetch(
+      'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+      {
+        method: 'POST',
+        body: formData,
+      }
+    );
+
+    const outcome = await result.json() as {
+      success: boolean;
+      'error-codes'?: string[];
+    };
+
+    if (!outcome.success) {
+      return {
+        success: false,
+        error: `Turnstile validation failed: ${outcome['error-codes']?.join(', ') || 'unknown'}`,
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: 'Failed to validate Turnstile token',
+    };
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const origin = request.headers.get('origin') || '';
     const allowedOrigins = env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
 
-    const authHeader = request.headers.get('Authorization') || '';
-    const providedKey = authHeader.replace('Bearer ', '');
-
     const clientIP = request.headers.get('CF-Connecting-IP') || '';
     const isLocalhost = clientIP === '127.0.0.1' || clientIP === '::1' || clientIP.startsWith('::ffff:127.');
 
     // validate origin
     const isOriginAllowed = allowedOrigins.some(allowed => {
-      // Exact match or wildcard
       if (allowed === '*') return true;
       if (allowed === origin) return true;
-      // Check if it's a localhost request
       if (origin.includes('localhost') && allowed.includes('localhost')) return true;
       return false;
-    }) || origin.includes('caricature-studio.pages.dev');
+    });
+
 
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
@@ -126,6 +162,8 @@ export default {
       );
     }
 
+
+
     // Root endpoint: GET /
     if (url.pathname === '/' && request.method === 'GET') {
       return new Response(JSON.stringify({
@@ -146,17 +184,18 @@ export default {
     // API endpoint: POST /api/transform
     if (url.pathname === '/api/transform' && request.method === 'POST') {
       try {
-        // API Key validation for localhost origins only
-        const isLocalhostOrigin = origin.includes('localhost');
+        const body = (await request.json()) as CaricatureRequest;
 
-        if (isLocalhostOrigin) {
-          const authHeader = request.headers.get('Authorization') || '';
-          const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+        // Turnstile validation - skip for localhost
+        if (!isLocalhost) {
+          const token = body.turnstileToken;
 
-          // If bearer token is present, API_KEY must be configured
-          if (bearerToken && !env.API_KEY) {
+          if (!token) {
             return new Response(
-              JSON.stringify({ error: 'Unauthorized: Incorrect Key' }),
+              JSON.stringify({
+                error: 'Missing Turnstile token',
+                details: 'Please complete the verification challenge'
+              }),
               {
                 status: 401,
                 headers: {
@@ -167,38 +206,24 @@ export default {
             );
           }
 
-          // If API_KEY is configured, bearer token is required and must match
-          if (env.API_KEY) {
-            if (!bearerToken) {
-              return new Response(
-                JSON.stringify({ error: 'Unauthorized: Bearer token required' }),
-                {
-                  status: 401,
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': origin,
-                  },
-                }
-              );
-            }
-            if (bearerToken !== env.API_KEY) {
-              return new Response(
-                JSON.stringify({ error: 'Unauthorized: Invalid API key' }),
-                {
-                  status: 401,
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': origin,
-                  },
-                }
-              );
-            }
+          const validation = await validateTurnstile(token, env.TURNSTILE_SECRET_KEY, clientIP);
+
+          if (!validation.success) {
+            return new Response(
+              JSON.stringify({
+                error: 'Turnstile verification failed',
+                details: validation.error
+              }),
+              {
+                status: 401,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Access-Control-Allow-Origin': origin,
+                },
+              }
+            );
           }
         }
-        // For non-localhost origins: CORS origin check already passed, no API key check needed
-
-
-        const body = (await request.json()) as CaricatureRequest;
 
         // Build prompt from settings or use provided prompt
         let finalPrompt: string;
@@ -269,15 +294,15 @@ export default {
         }
 
         // Generate image using selected model (default: sdxl-lightning)
-        const model = body.model || 'flux-2-dev';
+        const model = body.model || 'sdxl-lightning';
         let response;
 
         try {
           response = await generateImage(env.AI, model, body, finalPrompt);
 
-          // console.log(`[${model}] Response type:`, typeof response);
-          // console.log(`[${model}] Response keys:`, Object.keys(response || {}));
-          // console.log(`[${model}] Response preview:`, JSON.stringify(response).substring(0, 200));
+          console.log(`[${model}] Response type:`, typeof response);
+          console.log(`[${model}] Response keys:`, Object.keys(response || {}));
+          console.log(`[${model}] Response preview:`, JSON.stringify(response).substring(0, 200));
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : String(error);
           if (errorMsg.includes('Unknown model')) {
