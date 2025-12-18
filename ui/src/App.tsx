@@ -140,7 +140,7 @@ function App() {
     const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 
     if (!siteKey) {
-      setError('Turnstile configuration is missing. Please contact support.');
+      setError('App configuration is missing. Please contact support.');
       return;
     }
 
