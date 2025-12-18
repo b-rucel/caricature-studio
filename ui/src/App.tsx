@@ -59,6 +59,9 @@ function App() {
   const [selectedModel, setSelectedModel] = useState<ModelType>('flux-1-schnell');
   const [previewingHistoryItem, setPreviewingHistoryItem] = useState<any | null>(null);
   const [deleteConfirmIdx, setDeleteConfirmIdx] = useState<number | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileWidgetId, setTurnstileWidgetId] = useState<string | null>(null);
+  const [isLocalhost, setIsLocalhost] = useState(false);
 
   // Handle generate caricature
   const handleGenerateCaricature = async () => {
@@ -73,7 +76,7 @@ function App() {
         userPhoto: userPhoto || undefined,
         extraMode,
         model: selectedModel,
-      });
+      }, turnstileToken);
 
       if (response.error) {
         setError(response.error);
@@ -111,8 +114,48 @@ function App() {
       console.error('Generation error:', err);
     } finally {
       setIsLoading(false);
+      if (!isLocalhost && turnstileWidgetId && (window as any).turnstile) {
+        (window as any).turnstile.reset(turnstileWidgetId);
+        setTurnstileToken(null);
+      }
     }
   };
+
+  // Localhost detection
+  useEffect(() => {
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    setIsLocalhost(isLocal);
+    if (isLocal) {
+      // Auto-approve on localhost for development convenience
+      setTurnstileToken('bypass');
+    }
+  }, []);
+
+  // Turnstile initialization
+  useEffect(() => {
+    if (isLocalhost) {
+      return; // Skip Turnstile widget on localhost
+    }
+
+    if (typeof window !== 'undefined' && (window as any).turnstile) {
+      const widgetId = (window as any).turnstile.render('#turnstile-container', {
+        sitekey: import.meta.env.VITE_TURNSTILE_SITE_KEY,
+        callback: (token: string) => {
+          setTurnstileToken(token);
+        },
+        'error-callback': () => {
+          setTurnstileToken(null);
+          setError('Turnstile verification failed. Please try again.');
+        },
+        'expired-callback': () => {
+          setTurnstileToken(null);
+        },
+        theme: 'dark',
+        size: 'normal',
+      });
+      setTurnstileWidgetId(widgetId);
+    }
+  }, [isLocalhost]);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -483,7 +526,8 @@ function App() {
             </AccordionSection>
 
             <button onClick={makeItExtra} className="extra-btn w-full mt-4 ">🤫 Make it EXTRA</button>
-            <button onClick={handleGenerateCaricature} disabled={isLoading} className="generate-btn w-full mt-4">
+            {!isLocalhost && <div id="turnstile-container" className="mb-4"></div>}
+            <button onClick={handleGenerateCaricature} disabled={isLoading || !turnstileToken} className="generate-btn w-full mt-4">
               {isLoading ? '⏳ Generating...' : '✨ Transform Your Photo'}
             </button>
             {error && (
