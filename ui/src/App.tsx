@@ -56,7 +56,7 @@ function App() {
   const [jsonCopied, setJsonCopied] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedModel, setSelectedModel] = useState<ModelType>('flux-1-schnell');
+  const [selectedModel, setSelectedModel] = useState<ModelType>('sdxl-lightning');
   const [previewingHistoryItem, setPreviewingHistoryItem] = useState<any | null>(null);
   const [deleteConfirmIdx, setDeleteConfirmIdx] = useState<number | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
@@ -532,8 +532,8 @@ function App() {
               </div>
             </AccordionSection>
 
-            <button onClick={makeItExtra} className="extra-btn w-full mt-4 ">🤫 Make it EXTRA</button>
-            <button onClick={handleGenerateCaricature} disabled={isLoading || !turnstileToken} className="generate-btn w-full mt-4">
+            <button type="button" onClick={makeItExtra} className="extra-btn w-full mt-4 ">🤫 Make it EXTRA</button>
+            <button type="button" onClick={handleGenerateCaricature} disabled={isLoading || !turnstileToken} className="generate-btn w-full mt-4">
               {isLoading ? '⏳ Generating...' : '✨ Transform Your Photo'}
             </button>
             {error && (
