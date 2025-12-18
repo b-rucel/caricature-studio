@@ -114,10 +114,10 @@ function App() {
       console.error('Generation error:', err);
     } finally {
       setIsLoading(false);
-      if (!isLocalhost && turnstileWidgetId && (window as any).turnstile) {
-        (window as any).turnstile.reset(turnstileWidgetId);
-        setTurnstileToken(null);
-      }
+      // if (!isLocalhost && turnstileWidgetId && (window as any).turnstile) {
+      //   (window as any).turnstile.reset(turnstileWidgetId);
+      //   setTurnstileToken(null);
+      // }
     }
   };
 
